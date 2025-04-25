@@ -21,6 +21,28 @@ const courses = [
     preview: "https://img.youtube.com/vi/hdI2bqOjy3c/0.jpg",
     videoUrl: "https://www.youtube.com/embed/hdI2bqOjy3c",
   },
+  {
+    id: 4,
+    title: "Node.js and Express",
+    description: "Build backend applications using Node.js and Express.",
+    preview: "https://img.youtube.com/vi/Oe421EPjeBE/0.jpg",
+    videoUrl: "https://www.youtube.com/embed/Oe421EPjeBE",
+  },
+  {
+    id: 5,
+    title: "Python for Data Science",
+    description:
+      "Learn Python programming with a focus on data science applications.",
+    preview: "https://img.youtube.com/vi/Jv8nY1g2X6A/0.jpg",
+    videoUrl: "https://www.youtube.com/embed/Jv8nY1g2X6A",
+  },
+  {
+    id: 6,
+    title: "Django Web Framework",
+    description: "Build web applications using the Django framework in Python.",
+    preview: "https://img.youtube.com/vi/rHux0_7Bik0/0.jpg",
+    videoUrl: "https://www.youtube.com/embed/rHux0_7Bik0",
+  },
 ];
 
 export default courses;

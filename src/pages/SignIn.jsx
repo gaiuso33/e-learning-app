@@ -1,45 +1,27 @@
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginStart, loginSuccess, loginFailure } from '../features/auth/authSlice';
+import axios from 'axios';
 
-function SignIn() {
-  const { signIn } = useAuth();
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+function LoginForm() {
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((state) => state.auth);
 
-  const handleSubmit = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    signIn(email, password);
-    navigate('/dashboard');  // ⬅️ After signing in, go to dashboard
+    dispatch(loginStart());
+    try {
+      const res = await axios.post('http://localhost:5000/api/login', { email, password });
+      dispatch(loginSuccess(res.data));
+    } catch (err) {
+      dispatch(loginFailure(err.response?.data?.message || 'Login failed'));
+    }
   };
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6">Sign In</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="email"
-          placeholder="Email"
-          className="border p-2 rounded w-full"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          className="border p-2 rounded w-full"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button type="submit" className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
-          Sign In
-        </button>
-      </form>
-    </div>
+    <form onSubmit={handleLogin}>
+      {/* your form fields */}
+      {loading && <p>Loading...</p>}
+      {error && <p>{error}</p>}
+    </form>
   );
 }
-
-export default SignIn;

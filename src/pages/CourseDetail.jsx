@@ -1,65 +1,149 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import courses from '../data/courses';
-import { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link } from "react-router-dom";
+import courses from "../data/courses";
+import { useMemo } from "react";
+import ReactPlayer from "react-player";
+import { useEnrollments } from "../context/EnrollmentContext";
 
 function CourseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [enrolled, setEnrolled] = useState(false);
 
-  const course = courses.find((c) => c.id === parseInt(id));
+  const { isEnrolled, enroll, enrollLoading } = useEnrollments();
 
-  useEffect(() => {
-    const enrolledCourses = JSON.parse(localStorage.getItem('enrolledCourses')) || [];
-    if (enrolledCourses.includes(course?.id)) {
-      setEnrolled(true);
-    }
-  }, [course?.id]);
-
-  const handleEnroll = () => {
-    const enrolledCourses = JSON.parse(localStorage.getItem('enrolledCourses')) || [];
-    if (!enrolledCourses.includes(course.id)) {
-      enrolledCourses.push(course.id);
-      localStorage.setItem('enrolledCourses', JSON.stringify(enrolledCourses));
-      setEnrolled(true);
-      navigate('/dashboard'); // 🔥 redirect to dashboard
-    }
-  };
-
+  const course = useMemo(() => courses.find((c) => c.id === Number(id)), [id]);
 
   if (!course) {
-    return <div className="p-8">Course not found.</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 md:p-10">
+        <div className="max-w-4xl mx-auto bg-white border rounded-xl p-6">
+          <p className="text-gray-800 font-medium">Course not found.</p>
+          <Link
+            to="/courses"
+            className="inline-block mt-4 text-blue-600 hover:underline"
+          >
+            ← Back to Courses
+          </Link>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold mb-4">{course.title}</h1>
-      <p className="mb-6">{course.description}</p>
-      <div className="aspect-video mb-6">
-        <iframe
-          src={course.videoUrl}
-          title={course.title}
-          frameBorder="0"
-          allowFullScreen
-          className="w-full h-full"
-        ></iframe>
-      </div>
+  const enrolled = isEnrolled(course.id);
 
-      {enrolled ? (
-        <button
-          disabled
-          className="bg-green-500 text-white px-6 py-2 rounded cursor-not-allowed"
+  const handleEnroll = () => {
+    enroll(course.id);
+    navigate("/dashboard");
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6 md:p-10">
+      <div className="max-w-6xl mx-auto">
+        <Link
+          to="/courses"
+          className="inline-block mb-5 text-blue-600 hover:underline"
         >
-          Enrolled ✅
-        </button>
-      ) : (
-        <button
-          onClick={handleEnroll}
-          className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
-        >
-          Enroll Now
-        </button>
-      )}
+          ← Back to Courses
+        </Link>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main content */}
+          <div className="lg:col-span-2">
+            <div className="bg-white border rounded-xl p-6">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {course.title}
+              </h1>
+              <p className="text-gray-600 mt-2">{course.description}</p>
+
+              <div className="mt-6 aspect-video rounded-lg overflow-hidden bg-black">
+                <ReactPlayer
+                  url={course.videoUrl}
+                  width="100%"
+                  height="100%"
+                  controls
+                />
+              </div>
+            </div>
+
+            {/* Simple “Lessons” */}
+            <div className="bg-white border rounded-xl p-6 mt-6">
+              <h2 className="text-lg font-semibold text-gray-900">Lessons</h2>
+              <ul className="mt-3 space-y-2 text-gray-700">
+                <li className="p-3 rounded-lg bg-gray-50 border">
+                  1) Introduction
+                </li>
+                <li className="p-3 rounded-lg bg-gray-50 border">
+                  2) Core Concepts
+                </li>
+                <li className="p-3 rounded-lg bg-gray-50 border">
+                  3) Project Walkthrough
+                </li>
+              </ul>
+              <p className="text-xs text-gray-500 mt-3">
+                (We’ll make this dynamic later.)
+              </p>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="bg-white border rounded-xl overflow-hidden">
+              <div className="aspect-video bg-gray-100">
+                <img
+                  src={course.preview}
+                  alt={`${course.title} preview`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+
+              <div className="p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Status</span>
+                  <span
+                    className={`text-sm font-medium ${
+                      enrolled ? "text-green-700" : "text-gray-800"
+                    }`}
+                  >
+                    {enrolled ? "Enrolled" : "Not enrolled"}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleEnroll}
+                  disabled={enrolled || enrollLoading}
+                  className={`mt-4 w-full px-4 py-2 rounded-lg text-white ${
+                    enrolled
+                      ? "bg-green-600 cursor-not-allowed opacity-90"
+                      : "bg-blue-600 hover:bg-blue-700"
+                  } ${enrollLoading ? "opacity-70 cursor-wait" : ""}`}
+                >
+                  {enrollLoading
+                    ? "Loading..."
+                    : enrolled
+                    ? "Enrolled ✅"
+                    : "Enroll Now"}
+                </button>
+
+                <button
+                  onClick={() => navigate("/dashboard")}
+                  className="mt-3 w-full px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 bg-white border rounded-xl p-5">
+              <h3 className="font-semibold text-gray-900">What you’ll learn</h3>
+              <ul className="mt-3 space-y-2 text-sm text-gray-700 list-disc pl-5">
+                <li>Practical concepts and examples</li>
+                <li>Hands-on learning with a project mindset</li>
+                <li>Confidence to apply skills immediately</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

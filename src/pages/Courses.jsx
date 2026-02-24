@@ -1,57 +1,75 @@
-import courses from '../data/courses';
-import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import courses from "../data/courses";
+import { useMemo, useState } from "react";
+import CourseCard from "../components/CourseCard";
+import { useEnrollments } from "../context/EnrollmentContext";
 
 function Courses() {
-  const [enrolledCourses, setEnrolledCourses] = useState([]);
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('enrolledCourses')) || [];
-    setEnrolledCourses(stored);
-  }, []);
+  // ✅ comes from context now (single source of truth)
+  const { isEnrolled, enroll, enrollLoading } = useEnrollments();
 
-  const handleEnroll = (id) => {
-    const updated = [...enrolledCourses, id];
-    setEnrolledCourses(updated);
-    localStorage.setItem('enrolledCourses', JSON.stringify(updated));
-  };
+  const filteredCourses = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return courses;
+
+    return courses.filter((c) => {
+      return (
+        c.title.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q)
+      );
+    });
+  }, [query]);
+
+  // optional: show a tiny loading state while enrollments restore
+  if (enrollLoading) {
+    return (
+      <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
+        <div className="max-w-6xl mx-auto text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold mb-6">Courses</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {courses.map((course) => (
-          <div key={course.id} className="border rounded p-4 shadow hover:shadow-lg">
-            <h2 className="text-xl font-semibold mb-2">{course.title}</h2>
-            <p className="mb-4">{course.description}</p>
-
-            <div className="flex items-center gap-4">
-              <Link
-                to={`/course/${course.id}`}
-                className="text-blue-600 hover:underline"
-              >
-                View Course
-              </Link>
-
-              {enrolledCourses.includes(course.id) ? (
-                <button
-                  disabled
-                  className="bg-green-500 text-white px-4 py-2 rounded cursor-not-allowed"
-                >
-                  Enrolled
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleEnroll(course.id)}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                  Enroll
-                </button>
-              )}
-            </div>
+    <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Courses</h1>
+            <p className="text-gray-600 mt-1">
+              Pick a course and start learning. Your enrollments show up on your
+              dashboard.
+            </p>
           </div>
-        ))}
+
+          {/* Search */}
+          <div className="w-full md:w-80">
+            <label className="text-sm text-gray-600">Search</label>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="mt-1 w-full border rounded-lg p-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder="React, Tailwind, Node..."
+            />
+          </div>
+        </div>
+
+        {filteredCourses.length === 0 ? (
+          <div className="bg-white border rounded-xl p-6 text-gray-700">
+            No courses match “{query}”.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCourses.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                isEnrolled={isEnrolled(course.id)}
+                onEnroll={enroll} // ✅ enroll(courseId)
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

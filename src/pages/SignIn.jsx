@@ -14,7 +14,7 @@ export default function SignIn() {
   } = useForm();
 
   const onSubmit = async (data) => {
-    const res = signIn(data);
+    const res = await signIn(data);
     if (!res.ok) {
       toast.error(res.message);
       return;

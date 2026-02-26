@@ -1,19 +1,40 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useEnrollments } from "../context/EnrollmentContext";
-import courses from "../data/courses";
+import { useEffect, useState } from "react";
+import { apiFetch } from "../utils/api";
 
 function Dashboard() {
   const { user } = useAuth();
-  const { enrolledIds, enrollLoading } = useEnrollments();
+  const { unenroll } = useEnrollments();
 
-  const enrolledCourseDetails = courses.filter((course) =>
-    enrolledIds.includes(course.id)
-  );
+  const [myCourses, setMyCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
   const displayName = user?.fullName || user?.email || "Student";
 
-  if (enrollLoading) {
+  useEffect(() => {
+    (async () => {
+      try {
+        setErr("");
+        const data = await apiFetch("/enrollments");
+        setMyCourses(Array.isArray(data) ? data : []);
+      } catch (e) {
+        setErr(e.message);
+        setMyCourses([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleUnenroll = async (courseId) => {
+    await unenroll(courseId);
+    setMyCourses((prev) => prev.filter((c) => c._id !== courseId));
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 md:p-10">
         <div className="max-w-6xl mx-auto text-gray-600">Loading...</div>
@@ -42,7 +63,14 @@ function Dashboard() {
           </Link>
         </div>
 
-        {enrolledCourseDetails.length === 0 ? (
+        {err ? (
+          <div className="bg-white border rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Couldn’t load enrollments
+            </h2>
+            <p className="text-gray-600 mt-2">{err}</p>
+          </div>
+        ) : myCourses.length === 0 ? (
           <div className="bg-white border rounded-xl p-6">
             <h2 className="text-xl font-semibold text-gray-900">
               No enrolled courses yet
@@ -65,9 +93,9 @@ function Dashboard() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {enrolledCourseDetails.map((course) => (
+              {myCourses.map((course) => (
                 <div
-                  key={course.id}
+                  key={course._id}
                   className="bg-white border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition"
                 >
                   <div className="aspect-video bg-gray-100">
@@ -87,17 +115,20 @@ function Dashboard() {
                       {course.description}
                     </p>
 
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-full">
-                        Enrolled
-                      </span>
-
+                    <div className="mt-4 flex items-center justify-between gap-3">
                       <Link
-                        to={`/courses/${course.id}`}
+                        to={`/courses/${course._id}`}
                         className="text-sm font-medium text-blue-600 hover:underline"
                       >
                         Continue →
                       </Link>
+
+                      <button
+                        onClick={() => handleUnenroll(course._id)}
+                        className="text-sm font-medium text-red-600 hover:underline"
+                      >
+                        Unenroll
+                      </button>
                     </div>
                   </div>
                 </div>

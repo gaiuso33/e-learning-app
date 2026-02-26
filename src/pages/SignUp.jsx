@@ -17,11 +17,11 @@ export default function SignUp() {
   const password = watch("password", "");
 
   const onSubmit = async (data) => {
-    const res = signUp({
-    fullName: data.fullName,
-    email: data.email,
-    password: data.password,
-  });
+    const res = await signUp({
+      fullName: data.fullName,
+      email: data.email,
+      password: data.password,
+    });
     if (!res.ok) {
       toast.error(res.message);
       return;

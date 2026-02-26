@@ -1,60 +1,75 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { apiFetch } from "../utils/api";
 
 const EnrollmentContext = createContext(null);
-
-const KEY = "enrolledCourses";
-
-function readEnrolled() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeEnrolled(ids) {
-  localStorage.setItem(KEY, JSON.stringify(ids));
-}
 
 export function EnrollmentProvider({ children }) {
   const [enrolledIds, setEnrolledIds] = useState([]);
   const [enrollLoading, setEnrollLoading] = useState(true);
 
+  // Load enrollments from backend when token exists
   useEffect(() => {
-    setEnrolledIds(readEnrolled());
-    setEnrollLoading(false);
+    const token = localStorage.getItem("token");
+
+    // Not logged in => no enrollments
+    if (!token) {
+      setEnrolledIds([]);
+      setEnrollLoading(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        // GET /enrollments returns full course objects (because of populate)
+        const courses = await apiFetch("/enrollments");
+        const ids = Array.isArray(courses) ? courses.map((c) => c._id) : [];
+        setEnrolledIds(ids);
+      } catch (e) {
+        // token might be invalid, or server down
+        console.error("Failed to load enrollments:", e);
+        setEnrolledIds([]);
+      } finally {
+        setEnrollLoading(false);
+      }
+    })();
   }, []);
 
   const isEnrolled = (courseId) => enrolledIds.includes(courseId);
 
-  const enroll = (courseId, { silent = false } = {}) => {
-    setEnrolledIds((prev) => {
-      if (prev.includes(courseId)) {
+  const enroll = async (courseId, { silent = false } = {}) => {
+    try {
+      // optimistic guard
+      if (enrolledIds.includes(courseId)) {
         if (!silent) toast.info("You’re already enrolled.");
-        return prev;
+        return;
       }
-      const updated = [...prev, courseId];
-      writeEnrolled(updated);
+
+      await apiFetch(`/enrollments/${courseId}`, { method: "POST" });
+
+      setEnrolledIds((prev) => {
+        if (prev.includes(courseId)) return prev;
+        return [...prev, courseId];
+      });
+
       if (!silent) toast.success("Enrolled successfully!");
-      return updated;
-    });
+    } catch (e) {
+      if (!silent) toast.error(e.message);
+    }
   };
 
-  const unenroll = (courseId, { silent = false } = {}) => {
-    setEnrolledIds((prev) => {
-      if (!prev.includes(courseId)) return prev;
-      const updated = prev.filter((id) => id !== courseId);
-      writeEnrolled(updated);
+  // Optional: only works if you add DELETE route on backend
+  const unenroll = async (courseId, { silent = false } = {}) => {
+    try {
+      await apiFetch(`/enrollments/${courseId}`, { method: "DELETE" });
+      setEnrolledIds((prev) => prev.filter((id) => id !== courseId));
       if (!silent) toast.info("Unenrolled.");
-      return updated;
-    });
+    } catch (e) {
+      if (!silent) toast.error(e.message);
+    }
   };
 
   const clearEnrollments = () => {
-    writeEnrolled([]);
     setEnrolledIds([]);
   };
 
@@ -79,6 +94,7 @@ export function EnrollmentProvider({ children }) {
 
 export function useEnrollments() {
   const ctx = useContext(EnrollmentContext);
-  if (!ctx) throw new Error("useEnrollments must be used inside EnrollmentProvider");
+  if (!ctx)
+    throw new Error("useEnrollments must be used inside EnrollmentProvider");
   return ctx;
 }

@@ -1,22 +1,49 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import courses from "../data/courses";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import ReactPlayer from "react-player";
 import { useEnrollments } from "../context/EnrollmentContext";
+import { apiFetch } from "../utils/api";
 
 function CourseDetail() {
-  const { id } = useParams();
+  const { id } = useParams(); // this is Mongo _id now
   const navigate = useNavigate();
 
-  const { isEnrolled, enroll, enrollLoading } = useEnrollments();
+  const { isEnrolled, enroll, unenroll, enrollLoading } = useEnrollments();
 
-  const course = useMemo(() => courses.find((c) => c.id === Number(id)), [id]);
+  const [course, setCourse] = useState(null);
+  const [courseLoading, setCourseLoading] = useState(true);
+  const [courseError, setCourseError] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setCourseError("");
+        const data = await apiFetch(`/courses/${id}`);
+        setCourse(data);
+      } catch (e) {
+        setCourse(null);
+        setCourseError(e.message);
+      } finally {
+        setCourseLoading(false);
+      }
+    })();
+  }, [id]);
+
+  if (courseLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 md:p-10">
+        <div className="max-w-6xl mx-auto text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
   if (!course) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 md:p-10">
         <div className="max-w-4xl mx-auto bg-white border rounded-xl p-6">
-          <p className="text-gray-800 font-medium">Course not found.</p>
+          <p className="text-gray-800 font-medium">
+            {courseError || "Course not found."}
+          </p>
           <Link
             to="/courses"
             className="inline-block mt-4 text-blue-600 hover:underline"
@@ -28,12 +55,16 @@ function CourseDetail() {
     );
   }
 
-  const enrolled = isEnrolled(course.id);
+  const enrolled = isEnrolled(course._id);
 
-  const handleEnroll = () => {
-    enroll(course.id);
+  const handleEnroll = async () => {
+    await enroll(course._id);
     navigate("/dashboard");
   };
+
+  const handleUnenroll = async () => {
+  await unenroll(course._id);
+};
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-10">
@@ -64,7 +95,7 @@ function CourseDetail() {
               </div>
             </div>
 
-            {/* Simple “Lessons” */}
+            {/* Lessons (fake for now) */}
             <div className="bg-white border rounded-xl p-6 mt-6">
               <h2 className="text-lg font-semibold text-gray-900">Lessons</h2>
               <ul className="mt-3 space-y-2 text-gray-700">
@@ -108,21 +139,27 @@ function CourseDetail() {
                   </span>
                 </div>
 
-                <button
-                  onClick={handleEnroll}
-                  disabled={enrolled || enrollLoading}
-                  className={`mt-4 w-full px-4 py-2 rounded-lg text-white ${
-                    enrolled
-                      ? "bg-green-600 cursor-not-allowed opacity-90"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  } ${enrollLoading ? "opacity-70 cursor-wait" : ""}`}
-                >
-                  {enrollLoading
-                    ? "Loading..."
-                    : enrolled
-                    ? "Enrolled ✅"
-                    : "Enroll Now"}
-                </button>
+                {enrolled ? (
+  <button
+    onClick={handleUnenroll}
+    disabled={enrollLoading}
+    className={`mt-4 w-full px-4 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700 ${
+      enrollLoading ? "opacity-70 cursor-wait" : ""
+    }`}
+  >
+    {enrollLoading ? "Loading..." : "Unenroll"}
+  </button>
+) : (
+  <button
+    onClick={handleEnroll}
+    disabled={enrollLoading}
+    className={`mt-4 w-full px-4 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 ${
+      enrollLoading ? "opacity-70 cursor-wait" : ""
+    }`}
+  >
+    {enrollLoading ? "Loading..." : "Enroll Now"}
+  </button>
+)}
 
                 <button
                   onClick={() => navigate("/dashboard")}

@@ -1,79 +1,69 @@
-// src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  getUsers,
-  setUsers,
-  getCurrentUser,
-  setCurrentUser,
-  clearCurrentUser,
-} from "../utils/localAuth";
+import { apiFetch } from "../utils/api";
 
 const AuthContext = createContext(null);
 
-function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
-}
-
-function safeUser(user) {
-  const { password, ...rest } = user;
-  return rest;
-}
-
-function makeId() {
-  return crypto?.randomUUID?.() ?? String(Date.now());
-}
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true); // ✅ add this
+  const [authLoading, setAuthLoading] = useState(true);
 
+  // restore session from token
   useEffect(() => {
-    const existing = getCurrentUser();
-    setUser(existing);
-    setAuthLoading(false); // ✅ important
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setUser(null);
+      setAuthLoading(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        const data = await apiFetch("/auth/me");
+        setUser(data.user);
+      } catch {
+        // token invalid/expired
+        localStorage.removeItem("token");
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    })();
   }, []);
 
-  const signUp = ({ fullName, email, password }) => {
-    const users = getUsers();
-    const normalizedEmail = normalizeEmail(email);
+  const signUp = async ({ fullName, email, password }) => {
+    try {
+      const data = await apiFetch("/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({ fullName, email, password }),
+      });
 
-    const exists = users.some((u) => normalizeEmail(u.email) === normalizedEmail);
-    if (exists) return { ok: false, message: "An account with this email already exists." };
+      localStorage.setItem("token", data.token);
+      setUser(data.user);
 
-    const newUser = {
-      id: makeId(),
-      fullName: String(fullName).trim(),
-      email: normalizedEmail,
-      password: String(password),
-      createdAt: new Date().toISOString(),
-    };
-
-    setUsers([...users, newUser]);
-
-    const loggedIn = safeUser(newUser);
-    setCurrentUser(loggedIn);
-    setUser(loggedIn);
-
-    return { ok: true, user: loggedIn };
+      return { ok: true, user: data.user };
+    } catch (e) {
+      return { ok: false, message: e.message };
+    }
   };
 
-  const signIn = ({ email, password }) => {
-    const users = getUsers();
-    const normalizedEmail = normalizeEmail(email);
+  const signIn = async ({ email, password }) => {
+    try {
+      const data = await apiFetch("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
 
-    const found = users.find((u) => normalizeEmail(u.email) === normalizedEmail);
-    if (!found) return { ok: false, message: "No account found for this email." };
-    if (String(found.password) !== String(password)) return { ok: false, message: "Incorrect password." };
+      localStorage.setItem("token", data.token);
+      setUser(data.user);
 
-    const loggedIn = safeUser(found);
-    setCurrentUser(loggedIn);
-    setUser(loggedIn);
-
-    return { ok: true, user: loggedIn };
+      return { ok: true, user: data.user };
+    } catch (e) {
+      return { ok: false, message: e.message };
+    }
   };
 
   const signOut = () => {
-    clearCurrentUser();
+    localStorage.removeItem("token");
     setUser(null);
   };
 
@@ -81,7 +71,7 @@ export function AuthProvider({ children }) {
     () => ({
       user,
       isAuthenticated: !!user,
-      authLoading, // ✅ expose it
+      authLoading,
       signUp,
       signIn,
       signOut,
@@ -97,34 +87,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
-// import { createContext, useContext, useState } from 'react';
-
-// const AuthContext = createContext();
-
-// export function AuthProvider({ children }) {
-//   const [user, setUser] = useState(() => {
-//     const savedUser = localStorage.getItem('user');
-//     return savedUser ? JSON.parse(savedUser) : null;
-//   });
-
-//   const signIn = (email, password) => {
-//     const newUser = { email };
-//     setUser(newUser);
-//     localStorage.setItem('user', JSON.stringify(newUser));
-//   };
-
-//   const signOut = () => {
-//     setUser(null);
-//     localStorage.removeItem('user');
-//   };
-
-//   return (
-//     <AuthContext.Provider value={{ user, signIn, signOut }}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// }
-
-// export function useAuth() {
-//   return useContext(AuthContext);
-// }
